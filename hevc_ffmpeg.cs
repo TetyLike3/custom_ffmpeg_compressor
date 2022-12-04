@@ -28,7 +28,7 @@ namespace custom_ffmpeg_compressor
 {
 	internal class hevc_ffmpeg
 	{
-		static string _ver = "rev5";
+		static string _ver = "rev6";
 		static string currentDirectory = Directory.GetCurrentDirectory();
 
 		static CompressorSettings settings = new CompressorSettings();
@@ -100,6 +100,11 @@ namespace custom_ffmpeg_compressor
 
 					LogManager.LogWithProcessLog(divider, logFileForFile, false);
 					LogManager.LogWithProcessLog(fileSizeLogText, logFileForFile, false);
+
+					// Log prediction of compression time (assume an average of 360fps)
+					double compressionTime = fileSizeMB / 360.0;
+					LogManager.LogWithProcessLog(string.Format("Estimated compression time: {0} seconds", Math.Round(compressionTime, 2)), logFileForFile, false);
+
 
 
 					// ---[COMPRESS FILE]--- //

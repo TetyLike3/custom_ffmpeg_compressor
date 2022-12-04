@@ -14,7 +14,7 @@ namespace custom_ffmpeg_compressor
     
     internal class LogManager
     {
-        private static string _ver = "rev2";
+        private static string _ver = "rev3";
 
         public static string logFolderPath { get; private set; } = string.Empty;
         public static string processLogPath { get; private set; }
