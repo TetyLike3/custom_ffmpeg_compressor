@@ -363,4 +363,4 @@ MigrationBackup/
 FodyWeavers.xsd
 
 # Old logs folder - kept for archiving idk
-_logs
+_logs/
