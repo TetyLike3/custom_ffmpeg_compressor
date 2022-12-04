@@ -28,7 +28,7 @@ namespace custom_ffmpeg_compressor
 {
 	internal class hevc_ffmpeg
 	{
-		static string _ver = "rev3";
+		static string _ver = "rev4";
 		static string currentDirectory = Directory.GetCurrentDirectory();
 
 		static CompressorSettings settings = new CompressorSettings();
@@ -201,13 +201,14 @@ namespace custom_ffmpeg_compressor
 					else LogManager.WriteToLogs(processAndCurrentFileLogs, "\tFailed to delete original file", true);
 				}
 
-				string encodedFileCopyName = string.Format("{0}{1}_TEMP{2}", settings.sourceFolder, Path.GetFileNameWithoutExtension(encoded), Path.GetExtension(encoded));
+				string encodedFileNameWithoutExtension = Path.GetFileNameWithoutExtension(encoded);
+				string encodedFileCopyName = string.Format("{0}{1}_TEMP{2}", settings.sourceFolder, encodedFileNameWithoutExtension, Path.GetExtension(encoded));
 
 				// Copy the encoded file to the same folder, with the suffix "TEMP"
 				FileManager.CopyFile(encoded, encodedFileCopyName, false);
 
 				// Move the copy of the encoded file to the destination folder
-				string encodedFileDestinationName = settings.destinationFolder + "\\" + Path.GetFileNameWithoutExtension(encoded) + ".mp4";
+				string encodedFileDestinationName = settings.destinationFolder + "\\" + encodedFileNameWithoutExtension + ".mp4";
 				bool moveSuccess = FileManager.MoveFile(encodedFileCopyName, encodedFileDestinationName, false);
 				
 				// Check that the move was successfull
