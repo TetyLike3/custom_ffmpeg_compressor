@@ -52,7 +52,7 @@ namespace custom_ffmpeg_compressor.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
         public bool deleteOnEncodeSuccess {
             get {
                 return ((bool)(this["deleteOnEncodeSuccess"]));
@@ -61,7 +61,7 @@ namespace custom_ffmpeg_compressor.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
         public bool deleteOnCopySuccess {
             get {
                 return ((bool)(this["deleteOnCopySuccess"]));
@@ -109,6 +109,15 @@ namespace custom_ffmpeg_compressor.Properties {
         public bool showProcessWindow {
             get {
                 return ((bool)(this["showProcessWindow"]));
+            }
+        }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool deletePermanently {
+            get {
+                return ((bool)(this["deletePermanently"]));
             }
         }
     }

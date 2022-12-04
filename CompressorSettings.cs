@@ -15,11 +15,12 @@ namespace custom_ffmpeg_compressor
         public string sourceFolder { get; set; } = "/";
         public string destinationFolder { get; set; } = "/";
         public int cqp { get; set; } = 24;
-        public bool deleteSource { get; set; } = false;
-        public bool deleteCopy { get; set; } = false;
+        public bool deleteSource { get; set; } = true;
+        public bool deleteCopy { get; set; } = true;
         public string suffix { get; set; } = "_COMPRESSED";
         public List<string> ignoredFiles { get; set; } = new List<string>();
         public bool showProcessWindow { get; set; } = true;
+        public bool deletePermanently { get; set; } = false;
 
 
 
@@ -34,6 +35,7 @@ namespace custom_ffmpeg_compressor
             deleteCopy = Properties.Settings.Default.deleteOnCopySuccess;
             suffix = Properties.Settings.Default.outputSuffix;
             showProcessWindow = Properties.Settings.Default.showProcessWindow;
+            deletePermanently = Properties.Settings.Default.deletePermanently;
             // Load ignored files if any
             if (Properties.Settings.Default.ignoredFiles != null)
             {
