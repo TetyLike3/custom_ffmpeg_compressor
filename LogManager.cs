@@ -19,10 +19,10 @@ namespace custom_ffmpeg_compressor
         public static string logFolderPath { get; private set; } = string.Empty;
         public static string processLogPath { get; private set; }
         public static LogFile processLog { get; private set; }
-        private static string timestampFormat;
+        private static string globalTimestampFormat;
         private static bool initialised = false;
 
-        private static string _sessionid = TimeSpan.FromTicks(DateTime.Now.Ticks).TotalSeconds.ToString();
+        private static string _sessionid = Math.Round(TimeSpan.FromTicks(DateTime.Now.Ticks).TotalSeconds).ToString();
 
 
         ///<summary>
@@ -33,15 +33,15 @@ namespace custom_ffmpeg_compressor
             if (initialised) processLog.Log("Attempted to initialise when LogManager was already initialised");
             else
             {
+                initialised = true;
                 // Get the timestamp format, the log folder path and create a process log
-                timestampFormat = Properties.Settings.Default.timestampFormat;
-                if (logFolderPath == string.Empty) logFolderPath = Directory.GetCurrentDirectory() + "\\logs\\" + _sessionid;
+                globalTimestampFormat = Properties.Settings.Default.timestampFormat;
+                logFolderPath = Directory.GetCurrentDirectory() + "\\logs\\S-ID_" + _sessionid;
                 if (!Directory.Exists(logFolderPath)) Directory.CreateDirectory(logFolderPath);
 
                 string processLogName = Path.GetFileNameWithoutExtension(callerModulePath) + "_MAIN_PROCESS";
-                processLog = new LogFile(processLogName, DateTime.MaxValue, true, timestampFormat);
-
-                initialised = true;
+                processLog = new LogFile(processLogName, DateTime.MaxValue, true, globalTimestampFormat);
+                
                 processLog.Log(string.Format("LogManager {0} initialised", _ver));
             }
         }
@@ -92,11 +92,19 @@ namespace custom_ffmpeg_compressor
             public DateTime expiry { get; private set; }
 
 
-            public LogFile(string path, DateTime expiry, bool logToConsole = false, string timestampFormat = "dd-MM-yyyy HH:mm:ss.fff")
+            public LogFile(string name, DateTime expiry, bool logToConsole = false, string timestampFormat = "dd-MM-yyyy HH:mm:ss.fff")
             {
-                this.logPath = path + DateTime.Now.ToString(timestampFormat) + ".log";
-                this.expiry = expiry;
-                this.logToConsole = logToConsole;
+                if (!initialised) Console.WriteLine("LogManager not initialised");
+                else //if (File.Exists(logPath)) LogManager.processLog.Log("Attempted to create a log file that already exists.");
+                {
+                    this.logName = Path.GetFileNameWithoutExtension(name);
+                    //this.logPath = string.Format("{0}\\{1}_{2}.log", logFolderPath, name, DateTime.Now.ToString(timestampFormat).Replace(":","-"));
+                    this.logPath = string.Format("{0}\\{1}.log", logFolderPath, name);
+                    this.expiry = expiry;
+                    this.logToConsole = logToConsole;
+                    this.timestampFormat = timestampFormat;
+                    Log(string.Format("LogFile {0} created", logName));
+                }
             }
 
 
@@ -106,18 +114,18 @@ namespace custom_ffmpeg_compressor
                 string logMessage = string.Empty;
 
                 // Add indentation
-                for (int i = 0; i < indent; i++) logMessage += "\t";
-
+                for (int i = 0; i < this.indent; i++) logMessage += "\t";
+                
                 // Add timestamp
-                _ = timestamp ? logMessage = DateTime.Now.ToString(timestampFormat) : logMessage = "";
+                _ = timestamp ? logMessage = DateTime.Now.ToString(this.timestampFormat) : logMessage = "";
 
 
                 // Format message
                 logMessage = string.Format("[{0}] [{1}]  {2}: {3}", logMessage, level.ToString().ToUpper(), caller, message);
 
-                if (logToConsole) Console.WriteLine(logMessage);
+                if (this.logToConsole) Console.WriteLine(logMessage);
 
-                File.AppendAllText(logPath, logMessage + Environment.NewLine);
+                File.AppendAllText(this.logPath, logMessage + Environment.NewLine);
             }
 
 

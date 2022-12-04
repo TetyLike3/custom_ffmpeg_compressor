@@ -53,14 +53,16 @@ namespace custom_ffmpeg_compressor
         ///</summary>
         public void logSettings()
         {
-            LogManager.WriteEmptyToLog(LogManager.processLogPath,1);
-            LogManager.WriteToProcessLog("-----[SETTINGS]-----", false);
+            LogManager.processLog.LogBreak();
+            LogManager.processLog.Log("-----[SETTINGS]-----", false);
+            LogManager.processLog.Indent();
             foreach (var property in typeof(CompressorSettings).GetProperties())
             {
-                LogManager.WriteToProcessLog(string.Format("\t{0}: {1}", property.Name, property.GetValue(this)), false);
+                LogManager.processLog.Log(string.Format("{0}: {1}", property.Name, property.GetValue(this)), false);
             }
-            LogManager.WriteToProcessLog("-----[SETTINGS]-----", false);
-            LogManager.WriteEmptyToLog(LogManager.processLogPath, 1);
+            LogManager.processLog.Unindent();
+            LogManager.processLog.Log("-----[SETTINGS]-----", false);
+            LogManager.processLog.LogBreak();
         }
     }
 }
