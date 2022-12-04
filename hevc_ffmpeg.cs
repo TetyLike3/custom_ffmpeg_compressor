@@ -18,6 +18,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -27,6 +28,7 @@ namespace custom_ffmpeg_compressor
 {
 	internal class hevc_ffmpeg
 	{
+		static string _ver = "rev2";
 		static string currentDirectory = Directory.GetCurrentDirectory();
 
 		static CompressorSettings settings = new CompressorSettings();
@@ -43,8 +45,8 @@ namespace custom_ffmpeg_compressor
 			// [PREPARATION] //
 
 			LogManager.Init();
-
-			LogManager.WriteToProcessLog("Preparing module...", true);
+			
+			LogManager.WriteToProcessLog(string.Format("Preparing {0} module ({1})...", nameof(hevc_ffmpeg), _ver), true);
 			
 
 			// ---[READ SETTINGS]--- //
@@ -246,10 +248,9 @@ namespace custom_ffmpeg_compressor
 
 			Process process = new Process();
 			int exitCode = 0;
-			process.StartInfo.RedirectStandardError = true;
-			process.StartInfo.RedirectStandardOutput = true;
 			process.StartInfo.CreateNoWindow = !settings.showProcessWindow;
 			process.StartInfo.UseShellExecute = false;
+			//process.StartInfo.RedirectStandardOutput = true;
 			process.StartInfo.FileName = "cmd.exe";
 			process.StartInfo.Arguments = "/C " + processCommand;
 
@@ -259,11 +260,13 @@ namespace custom_ffmpeg_compressor
 
 			LogManager.WriteToLogs(processAndCurrentFileLogs, "--- PROCESS OUTPUT ---", true);
 			// Log the output stream while the process is running
+			/*
 			while (!process.StandardOutput.EndOfStream)
 			{
 				string line = process.StandardOutput.ReadLine();
 				LogManager.WriteToLogs(processAndCurrentFileLogs, line, true);
 			}
+			*/
 
 			process.WaitForExit();
 
@@ -271,8 +274,6 @@ namespace custom_ffmpeg_compressor
 			LogManager.WriteToLogs(processAndCurrentFileLogs, "--- PROCESS OUTPUT ---", true);
 
 			exitCode = process.ExitCode;
-			string stdout = process.StandardOutput.ReadToEnd();
-			string stderr = process.StandardError.ReadToEnd();
 
 			process.Close();
 			LogManager.WriteToProcessLog(string.Format("Finished compression of file [{0}] with exit code {1}", fileName, exitCode), true);
