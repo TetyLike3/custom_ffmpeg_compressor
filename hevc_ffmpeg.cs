@@ -104,12 +104,14 @@ namespace custom_ffmpeg_compressor
 					// Log prediction of compression time (assume an average of 360fps)
 					WindowsMediaPlayer wmp = new WindowsMediaPlayerClass();
 					IWMPMedia mediainfo = wmp.newMedia(file);
-					var originalFramesRounded = Math.Round(Convert.ToDouble(mediainfo.getItemInfo("FrameRate")) * Convert.ToDouble(mediainfo.duration));
+					var duration = Convert.ToDouble(mediainfo.duration);
+					var fps = Convert.ToDouble(mediainfo.getItemInfo("FrameRate"));
 					wmp.close();
+					
+					var frames = fps * duration;
+					var time = frames / 360;
 
-					var compressionTime = originalFramesRounded / 360;
-
-					LogManager.LogWithProcessLog(string.Format("Estimated compression time: {0} seconds", Math.Round(compressionTime, 2)), logFileForFile, false);
+					LogManager.LogWithProcessLog(string.Format("Estimated compression time: {0} seconds", Math.Round(time, 2)), logFileForFile, false);
 
 
 
