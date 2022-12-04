@@ -28,15 +28,14 @@ namespace custom_ffmpeg_compressor
 {
 	internal class hevc_ffmpeg
 	{
-		static string _ver = "rev4";
+		static string _ver = "rev5";
 		static string currentDirectory = Directory.GetCurrentDirectory();
 
 		static CompressorSettings settings = new CompressorSettings();
 		static string[] files = { };
 
-		static string logFileForFile = "";
+		static LogManager.LogFile logFileForFile;
 
-		static string[] processAndCurrentFileLogs = { };
 
 		static bool shouldEncode = true;
 
@@ -46,8 +45,8 @@ namespace custom_ffmpeg_compressor
 
 			LogManager.Init();
 			FileManager.Init();
-			
-			LogManager.WriteToProcessLog(string.Format("Preparing {0} module ({1})...", nameof(hevc_ffmpeg), _ver), true);
+
+			LogManager.processLog.Log(string.Format("Preparing {0} module ({1})...", nameof(hevc_ffmpeg), _ver));
 			
 
 			// ---[READ SETTINGS]--- //
@@ -58,7 +57,7 @@ namespace custom_ffmpeg_compressor
 			// Create the ffmpeg command
 			string command = "ffmpeg -hwaccel_output_format cuda -i \"{0}\" -map 0:v -map 0:a -map_metadata 0 -c:v hevc_nvenc -rc constqp -qp " + settings.cqp + " -b:v 0K -c:a copy -movflags +faststart -movflags use_metadata_tags -y \"{1}\"";
 
-			LogManager.WriteToProcessLog("Using ffmpeg command: " + command, true);
+			LogManager.processLog.Log("Using ffmpeg command: " + command);
 			
 			
 			
@@ -72,20 +71,23 @@ namespace custom_ffmpeg_compressor
 
 				string fileName = Path.GetFileName(file);
 
-				// Create a log file for the file in the _logs folder
-				logFileForFile = LogManager.CreateLogFile(Array.IndexOf(files, file).ToString());
+				
+				string divider = string.Format("-----[{0}]-----", fileName);
 
-				processAndCurrentFileLogs = new string[] { LogManager.processLogPath, logFileForFile };
-
-				LogManager.WriteEmptyToLog(LogManager.processLogPath, 1);
-				LogManager.WriteToLogs(processAndCurrentFileLogs, string.Format("-----[{0}]-----", fileName), false);
-				LogManager.WriteToProcessLog(string.Format("Loaded file {0}", fileName), true);
-
+				LogManager.processLog.LogBreak();
+				LogManager.processLog.Log(divider, false);
+				LogManager.processLog.Log(string.Format("Loaded file {0}", fileName));
 
 
 				// Check if the file is in the list of ignored files
 				if (!settings.ignoredFiles.Contains(fileName))
 				{
+					// Create a log file for the file in the default logs folder
+					logFileForFile = new LogManager.LogFile(LogManager.logFolderPath + Array.IndexOf(files, file).ToString(), DateTime.MaxValue);
+
+					logFileForFile.Log(divider, false);
+
+
 					string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(file);
 
 
@@ -94,7 +96,10 @@ namespace custom_ffmpeg_compressor
 					double fileSizeMB = fileSize / 1000000.0;
 
 					// Write the file size to the log files
-					LogManager.WriteToLogs(processAndCurrentFileLogs, string.Format("File size: {0} MB", Math.Round(fileSizeMB,2)), true);
+					string fileSizeLogText = string.Format("File size: {0} MB", Math.Round(fileSizeMB, 2));
+
+					LogManager.LogWithProcessLog(divider, logFileForFile, false);
+					LogManager.LogWithProcessLog(fileSizeLogText, logFileForFile, false);
 
 
 					// ---[COMPRESS FILE]--- //
@@ -104,24 +109,25 @@ namespace custom_ffmpeg_compressor
 					CompareFiles(file, encodedFileName);
 
 					// Log that the file was processed
-					LogManager.WriteEmptyToLogs(processAndCurrentFileLogs, 1);
-					LogManager.WriteToLogs(processAndCurrentFileLogs, "\tFile has finished processing", true);
-					LogManager.WriteEmptyToLogs(processAndCurrentFileLogs, 1);
+					LogManager.processLog.LogBreak();
+
+					LogManager.LogWithProcessLog("File has finished processing", logFileForFile);
+					LogManager.processLog.LogBreak();
 
 				}
 				else
 				{
-					// Write that the file is in the list of ignored files to the log file
-					LogManager.WriteEmptyToLog(LogManager.processLogPath, 1);
-					LogManager.WriteToProcessLog(string.Format("File {0} is in ignored files list. Skipping...", fileName), true);
-					LogManager.WriteEmptyToLog(LogManager.processLogPath, 1);
+					// Write that the file is in the list of ignored files to the process log file
+					LogManager.processLog.LogBreak();
+					LogManager.processLog.Log(string.Format("File {0} is in ignored files list. Skipping...", fileName));
+					LogManager.processLog.LogBreak();
 				}
 			}
 
 			// [FINISH PROCESSING] //
-			LogManager.WriteEmptyToLog(LogManager.processLogPath, 1);
-			LogManager.WriteToProcessLog("All files have finished processing.", true);
-			LogManager.WriteEmptyToLog(LogManager.processLogPath, 1);
+			LogManager.processLog.LogBreak();
+			LogManager.processLog.Log("All files have finished processing.");
+			LogManager.processLog.LogBreak();
 
 			Console.WriteLine("Program has finished");
 		}
@@ -139,7 +145,15 @@ namespace custom_ffmpeg_compressor
 		///</summary>
 		static void CompareFiles(string original, string encoded)
 		{
+			LogManager.LogWithProcessLog("FILE COMPARISON", logFileForFile);
+			LogManager.processLog.Indent();
+			logFileForFile.Indent();
+
+
+
+
 			// [LENGTH COMPARISON] //
+
 
 			// Get original file length
 			WindowsMediaPlayer wmp = new WindowsMediaPlayerClass();
@@ -153,10 +167,10 @@ namespace custom_ffmpeg_compressor
 
 			// Compare the lengths
 			double lenDifference = Math.Abs(originalDuration - encodedDuration);
-			LogManager.WriteToLogs(processAndCurrentFileLogs, "\tLength difference: " + lenDifference + " seconds", false);
+			LogManager.LogWithProcessLog("Length difference: " + lenDifference + " seconds", logFileForFile, false);
 			if (lenDifference != 0)
 			{
-				LogManager.WriteToLogs(processAndCurrentFileLogs, "\tFailed to complete encoding. Dropping all other files.", true);
+				LogManager.LogWithProcessLog("Failed to complete encoding. Dropping all other files.", logFileForFile, true, LogManager.LogLevelEnum.Error);
 				shouldEncode = false;
 				return;
 			}
@@ -172,18 +186,22 @@ namespace custom_ffmpeg_compressor
 			double encodedFileSizeMB = encodedFileSize / 1000000.0;
 
 			// Write the file sizes to the log files
-			LogManager.WriteToLogs(processAndCurrentFileLogs, "\tOriginal file size: " + Math.Round(originalFileSizeMB,2) + " MB", false);
-			LogManager.WriteToLogs(processAndCurrentFileLogs, "\tEncoded file size: " + Math.Round(encodedFileSizeMB, 2) + " MB", false);
+			LogManager.LogWithProcessLog("Original file size: " + Math.Round(originalFileSizeMB, 2) + " MB", logFileForFile, false);
+			LogManager.LogWithProcessLog("Encoded file size: " + Math.Round(encodedFileSizeMB, 2) + " MB", logFileForFile, false);
 
 			// Calculate the difference in file size
 			double sizeDifference = Math.Abs(originalFileSizeMB - encodedFileSizeMB);
-			LogManager.WriteToLogs(processAndCurrentFileLogs, "\tSize difference: " + Math.Round(sizeDifference, 2) + " MB", false);
+			LogManager.LogWithProcessLog("Size difference: " + Math.Round(sizeDifference, 2) + " MB", logFileForFile, false);
 
 			// Calculate the percentage of the original file size that the encoded file is
 			double percentage = (encodedFileSizeMB / originalFileSizeMB) * 100;
-			LogManager.WriteToLogs(processAndCurrentFileLogs, "\tPercentage of original file size: " + Math.Round(percentage, 2) + "%", false);
+			LogManager.LogWithProcessLog("Percentage of original file size: " + Math.Round(percentage, 2) + "%", logFileForFile, false);
 
-
+			LogManager.processLog.Unindent();
+			logFileForFile.Unindent();
+			LogManager.LogWithProcessLog("FILE MANAGEMENT", logFileForFile);
+			LogManager.processLog.Indent();
+			logFileForFile.Indent();
 
 			// [FILE MANAGEMENT] //
 
@@ -191,14 +209,14 @@ namespace custom_ffmpeg_compressor
 			if (encodedFileSize < originalFileSize)
 			{
 				// [ENCODED FILE IS SMALLER] //
-				LogManager.WriteToLogs(processAndCurrentFileLogs, "\tEncoded file is smaller than the original file", false);
+				LogManager.LogWithProcessLog("Encoded file is smaller than the original file", logFileForFile, false);
 
 				if (settings.deleteSource)
 				{
 					// Delete the original file
 					bool delSuccess = FileManager.DeleteFile(original,settings.deletePermanently);
-					if (delSuccess) LogManager.WriteToLogs(processAndCurrentFileLogs, "\tDeleted original file", true);
-					else LogManager.WriteToLogs(processAndCurrentFileLogs, "\tFailed to delete original file", true);
+					if (delSuccess) LogManager.LogWithProcessLog("Deleted original file", logFileForFile);
+					else LogManager.LogWithProcessLog("Failed to delete original file", logFileForFile);
 				}
 
 				string encodedFileNameWithoutExtension = Path.GetFileNameWithoutExtension(encoded);
@@ -214,34 +232,36 @@ namespace custom_ffmpeg_compressor
 				// Check that the move was successfull
 				if (moveSuccess)
 				{
-					LogManager.WriteToLogs(processAndCurrentFileLogs, "\tMoved encoded file to destination folder", true);
-					
+					LogManager.LogWithProcessLog("Moved encoded file to destination folder", logFileForFile);
+
 					// Delete the original encoded file
 					bool delSuccess = FileManager.DeleteFile(encoded,settings.deletePermanently);
 
-					if (delSuccess) LogManager.WriteToLogs(processAndCurrentFileLogs, "\tDeleted encoded file copy", true);
-					else LogManager.WriteToLogs(processAndCurrentFileLogs, "\tFailed to delete encoded file copy", true);
+					if (delSuccess) LogManager.LogWithProcessLog("Deleted encoded file copy", logFileForFile);
+					else LogManager.LogWithProcessLog("Failed to delete encoded file copy", logFileForFile);
 				}
 				else
 				{
-					LogManager.WriteToLogs(processAndCurrentFileLogs, "\tFailed to move encoded file to destination folder. Assuming destination drive is full.", true);
+					LogManager.LogWithProcessLog("Failed to move encoded file to destination folder. Assuming destination drive is full.", logFileForFile);
 					settings.deleteSource = false;
 				}
 			}
 			else
 			{
 				// [ENCODED FILE IS LARGER] //
-				LogManager.WriteToLogs(processAndCurrentFileLogs, "\tEncoded file is larger than the original file", false);
+				LogManager.LogWithProcessLog("Encoded file is larger than the original file", logFileForFile, false);
 
 				// Delete the encoded file
 				bool delSuccess = FileManager.DeleteFile(encoded, settings.deletePermanently);
 
-				if (delSuccess) LogManager.WriteToLogs(processAndCurrentFileLogs, "\tDeleted encoded file", true);
-				else LogManager.WriteToLogs(processAndCurrentFileLogs, "\tFailed to delete encoded file", true);
+				if (delSuccess) LogManager.LogWithProcessLog("Deleted encoded file", logFileForFile);
+				else LogManager.LogWithProcessLog("Failed to delete encoded file", logFileForFile);
 			}
 
 			// [FINISH COMPARISON] //
-			LogManager.WriteToLogs(processAndCurrentFileLogs, "File comparison finished", true);
+			LogManager.LogWithProcessLog("File comparison finished", logFileForFile);
+			LogManager.processLog.Unindent();
+			logFileForFile.Unindent();
 		}
 
 
@@ -266,11 +286,11 @@ namespace custom_ffmpeg_compressor
 			process.StartInfo.FileName = "cmd.exe";
 			process.StartInfo.Arguments = "/C " + processCommand;
 
-			LogManager.WriteToProcessLog("Started compression of file [" + fileName + "]", true);
+			LogManager.processLog.Log("Started compression of file [" + fileName + "]");
 			process.Start();
 
 
-			LogManager.WriteToLogs(processAndCurrentFileLogs, "--- PROCESS OUTPUT ---", true);
+			LogManager.LogWithProcessLog("--- PROCESS OUTPUT ---", logFileForFile);
 			// Log the output stream while the process is running
 			/*
 			while (!process.StandardOutput.EndOfStream)
@@ -282,13 +302,14 @@ namespace custom_ffmpeg_compressor
 
 			process.WaitForExit();
 
-			LogManager.WriteToLogs(processAndCurrentFileLogs, "", false);
-			LogManager.WriteToLogs(processAndCurrentFileLogs, "--- PROCESS OUTPUT ---", true);
+			LogManager.LogWithProcessLog("File comparison finished", logFileForFile);
+			LogManager.processLog.LogBreak();
+			LogManager.LogWithProcessLog("--- PROCESS OUTPUT ---", logFileForFile);
 
 			exitCode = process.ExitCode;
 
 			process.Close();
-			LogManager.WriteToProcessLog(string.Format("Finished compression of file [{0}] with exit code {1}", fileName, exitCode), true);
+			LogManager.processLog.Log(string.Format("Finished compression of file [{0}] with exit code {1}", fileName, exitCode));
 
 			return encodedFileName;
 
@@ -307,7 +328,7 @@ namespace custom_ffmpeg_compressor
 			// Get the settings from the settings.settings file
 			CompressorSettings settings = new CompressorSettings();
 
-			LogManager.WriteToProcessLog("Successfully retrieved settings", true);
+			LogManager.processLog.Log("Successfully retrieved settings");
 			settings.logSettings();
 			
 			return settings;

@@ -10,14 +10,19 @@ using System.Configuration;
 
 namespace custom_ffmpeg_compressor
 {
+    
+    
     internal class LogManager
     {
-        private static string _ver = "rev1";
+        private static string _ver = "rev2";
 
-        private static string logFolderPath = string.Empty;
+        public static string logFolderPath { get; private set; } = string.Empty;
         public static string processLogPath { get; private set; }
+        public static LogFile processLog { get; private set; }
         private static string timestampFormat;
         private static bool initialised = false;
+
+        private static string _sessionid = TimeSpan.FromTicks(DateTime.Now.Ticks).TotalSeconds.ToString();
 
 
         ///<summary>
@@ -25,112 +30,136 @@ namespace custom_ffmpeg_compressor
         ///</summary>
         public static void Init([CallerFilePath] string callerModulePath = "")
         {
-            if (initialised) WriteToProcessLog("Attempted to initialise when LogManager was already initialised", true);
-            
-            // Get the timestamp format, the log folder path and create a process log
-            timestampFormat = Properties.Settings.Default.timestampFormat;
-            if (logFolderPath == string.Empty) logFolderPath = Directory.GetCurrentDirectory() + "\\logs";
-            if (!Directory.Exists(logFolderPath))
+            if (initialised) processLog.Log("Attempted to initialise when LogManager was already initialised");
+            else
             {
-                Directory.CreateDirectory(logFolderPath);
-            }
+                // Get the timestamp format, the log folder path and create a process log
+                timestampFormat = Properties.Settings.Default.timestampFormat;
+                if (logFolderPath == string.Empty) logFolderPath = Directory.GetCurrentDirectory() + "\\logs\\" + _sessionid;
+                if (!Directory.Exists(logFolderPath)) Directory.CreateDirectory(logFolderPath);
 
-            processLogPath = CreateLogFile(Path.GetFileNameWithoutExtension(callerModulePath) + "_MAIN_PROCESS");
+                string processLogName = Path.GetFileNameWithoutExtension(callerModulePath) + "_MAIN_PROCESS";
+                processLog = new LogFile(processLogName, DateTime.MaxValue, true, timestampFormat);
 
-            initialised = true;
-            WriteToProcessLog(string.Format("LogManager {0} initialised", _ver), true);
-        }
-
-
-        ///<summary>
-        ///Sets the folder for all logs to be stored in.
-        ///</summary>
-        public static void SetLogFolder(string folder)
-        {
-            if (initialised) WriteToProcessLog("Attempted to set log folder when LogManager was initialised", true);
-            logFolderPath = folder;
-        }
-
-
-        ///<summary>
-        ///Creates a new log file with the given name.
-        ///</summary>
-        public static string CreateLogFile(string logName)
-        {
-            string logFileName = logFolderPath + "\\log_" + logName + "_" + DateTime.Now.ToString(timestampFormat).Replace(":", "-").Replace("\\", "-") + ".txt";
-            return logFileName;
-        }
-
-
-
-        ///<summary>
-        ///Writes to the process log.
-        ///</summary>
-        public static void WriteToProcessLog(string message, bool timestamp)
-        {
-            message += Environment.NewLine;
-            _ = timestamp == true? message = string.Format("[{0}] - {1}", DateTime.Now.ToString(timestampFormat), message) : message;
-            
-            File.AppendAllText(processLogPath, message);
-        }
-
-
-        ///<summary>
-        ///Writes to a given log file.
-        ///</summary>
-        public static void WriteToLog(string logFile, string message, bool timestamp)
-        {
-            message += Environment.NewLine;
-            _ = timestamp == true ? message = string.Format("[{0}] - {1}", DateTime.Now.ToString(timestampFormat), message) : message;
-
-            File.AppendAllText(logFile, message + Environment.NewLine);
-        }
-
-
-
-        ///<summary>
-        ///Writes to multiple logs.
-        ///</summary>
-        public static void WriteToLogs(string[] logFiles, string message, bool timestamp)
-        {
-            message += Environment.NewLine;
-            _ = timestamp == true ? message = string.Format("[{0}] - {1}", DateTime.Now.ToString(timestampFormat), message) : message;
-
-            foreach (string logFile in logFiles)
-            {
-                File.AppendAllText(logFile, message);
+                initialised = true;
+                processLog.Log(string.Format("LogManager {0} initialised", _ver));
             }
         }
 
 
-
-
-
-        ///<summary>
-        ///Writes a given number of empty lines to a given log file.
-        ///</summary>
-        public static void WriteEmptyToLog(string logFile, int count)
+        public static void LogMultiple(string message, LogFile[] logFiles, bool timestamp = true, LogLevelEnum level = LogLevelEnum.Info, [CallerMemberName] string caller = null)
         {
-            for (int i = 0; i < count; i++)
+            if (!initialised) Console.WriteLine("LogManager not initialised");
+            else
             {
-                File.AppendAllText(logFile, Environment.NewLine);
-            }
-        }
-
-
-
-        ///<summary>
-        ///Writes a given number of empty lines to multiple logs.
-        ///</summary>
-        public static void WriteEmptyToLogs(string[] logFiles, int count)
-        {
-            foreach (string logFile in logFiles)
-            {
-                for (int i = 0; i < count; i++)
+                foreach (LogFile logFile in logFiles)
                 {
-                    File.AppendAllText(logFile, Environment.NewLine);
+                    logFile.Log(message, timestamp, level, caller);
                 }
             }
         }
+
+        public static void LogWithProcessLog(string message, LogFile logFile, bool timestamp = true, LogLevelEnum level = LogLevelEnum.Info, [CallerMemberName] string caller = null)
+        {
+            if (!initialised) Console.WriteLine("LogManager not initialised");
+            else
+            {
+                logFile.Log(message, timestamp, level, caller);
+                processLog.Log(message, timestamp, level, caller);
+            }
+        }
+
+
+
+
+        internal enum LogLevelEnum
+        {
+            Debug,
+            Info,
+            Warning,
+            Error,
+            Fatal
+        }
+
+        internal class LogFile
+        {
+            public string logName { get; private set; }
+            public string logPath { get; private set; }
+            public int indent { get; private set; } = 0;
+            public bool logToConsole { get; private set; } = false;
+            public string timestampFormat { get; private set; }
+
+            public DateTime expiry { get; private set; }
+
+
+            public LogFile(string path, DateTime expiry, bool logToConsole = false, string timestampFormat = "dd-MM-yyyy HH:mm:ss.fff")
+            {
+                this.logPath = path + DateTime.Now.ToString(timestampFormat) + ".log";
+                this.expiry = expiry;
+                this.logToConsole = logToConsole;
+            }
+
+
+
+            public void Log(string message, bool timestamp = true, LogLevelEnum level = LogLevelEnum.Info, [CallerMemberName] string caller = null)
+            {
+                string logMessage = string.Empty;
+
+                // Add indentation
+                for (int i = 0; i < indent; i++) logMessage += "\t";
+
+                // Add timestamp
+                _ = timestamp ? logMessage = DateTime.Now.ToString(timestampFormat) : logMessage = "";
+
+
+                // Format message
+                logMessage = string.Format("[{0}] [{1}]  {2}: {3}", logMessage, level.ToString().ToUpper(), caller, message);
+
+                if (logToConsole) Console.WriteLine(logMessage);
+
+                File.AppendAllText(logPath, logMessage + Environment.NewLine);
+            }
+
+
+            public void Clear()
+            {
+                File.WriteAllText(logPath, "");
+            }
+
+
+            public void Indent() { indent++; }
+            public void Unindent() { indent--; }
+            public void LogBreak(int count = 1)
+            {
+                for (int i = 0; i < count; i++) File.AppendAllText(logPath, Environment.NewLine);
+            }
+
+        }
+
+        /*
+        public static void WriteToProcessLog(string message, bool timestamp = true, LogLevelEnum level = LogLevelEnum.Info, [CallerMemberName] string caller = null)
+        {
+            if (!initialised) Console.WriteLine("Attempted to write to process log when LogManager was not initialised");
+            else processLog.Log(message, timestamp, level, caller);
+        }
+
+        public static void WriteEmptyToProcessLog(int count = 1)
+        {
+            if (!initialised) Console.WriteLine("Attempted to write to process log when LogManager was not initialised");
+            else processLog.LogBreak(count);
+        }
+
+        public static void IndentProcessLog()
+        {
+            if (!initialised) Console.WriteLine("Attempted to indent process log when LogManager was not initialised");
+            else processLog.Indent();
+        }
+
+        public static void UnindentProcessLog()
+        {
+            if (!initialised) Console.WriteLine("Attempted to unindent process log when LogManager was not initialised");
+            else processLog.Unindent();
+        }
+        */
     }
 }
