@@ -83,7 +83,7 @@ namespace custom_ffmpeg_compressor
 				if (!settings.ignoredFiles.Contains(fileName))
 				{
 					// Create a log file for the file in the default logs folder
-					logFileForFile = new LogManager.LogFile(LogManager.logFolderPath + Array.IndexOf(files, file).ToString(), DateTime.MaxValue);
+					logFileForFile = new LogManager.LogFile(Array.IndexOf(files, file).ToString(), DateTime.MaxValue);
 
 					logFileForFile.Log(divider, false);
 
@@ -102,7 +102,13 @@ namespace custom_ffmpeg_compressor
 					LogManager.LogWithProcessLog(fileSizeLogText, logFileForFile, false);
 
 					// Log prediction of compression time (assume an average of 360fps)
-					double compressionTime = fileSizeMB / 360.0;
+					WindowsMediaPlayer wmp = new WindowsMediaPlayerClass();
+					IWMPMedia mediainfo = wmp.newMedia(file);
+					var originalFramesRounded = Math.Round(Convert.ToDouble(mediainfo.getItemInfo("FrameRate")) * Convert.ToDouble(mediainfo.duration));
+					wmp.close();
+
+					var compressionTime = originalFramesRounded / 360;
+
 					LogManager.LogWithProcessLog(string.Format("Estimated compression time: {0} seconds", Math.Round(compressionTime, 2)), logFileForFile, false);
 
 
