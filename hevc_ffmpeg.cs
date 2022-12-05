@@ -70,12 +70,9 @@ namespace custom_ffmpeg_compressor
 				}
 
 				string fileName = Path.GetFileName(file);
-
 				
-				string divider = string.Format("-----[{0}]-----", fileName);
 
 				LogManager.processLog.LogBreak();
-				LogManager.processLog.Log(divider, false);
 				LogManager.processLog.Log(string.Format("Loaded file {0}", fileName));
 
 
@@ -84,8 +81,6 @@ namespace custom_ffmpeg_compressor
 				{
 					// Create a log file for the file in the default logs folder
 					logFileForFile = new LogManager.LogFile(Array.IndexOf(files, file).ToString(), DateTime.MaxValue);
-
-					logFileForFile.Log(divider, false);
 
 
 					string fileNameWithoutExtension = Path.GetFileNameWithoutExtension(file);
@@ -98,20 +93,19 @@ namespace custom_ffmpeg_compressor
 					// Write the file size to the log files
 					string fileSizeLogText = string.Format("File size: {0} MB", Math.Round(fileSizeMB, 2));
 
-					LogManager.LogWithProcessLog(divider, logFileForFile, false);
+					LogManager.LogWithProcessLog(string.Format("-----[{0}]-----", fileName), logFileForFile, false);
 					LogManager.LogWithProcessLog(fileSizeLogText, logFileForFile, false);
 
 					// Log prediction of compression time (assume an average of 360fps)
 					WindowsMediaPlayer wmp = new WindowsMediaPlayerClass();
 					IWMPMedia mediainfo = wmp.newMedia(file);
 					var duration = Convert.ToDouble(mediainfo.duration);
-					var fps = Convert.ToDouble(mediainfo.getItemInfo("FrameRate"));
 					wmp.close();
-					
+					var fps = 60;
 					var frames = fps * duration;
 					var time = frames / 360;
 
-					LogManager.LogWithProcessLog(string.Format("Estimated compression time: {0} seconds", Math.Round(time, 2)), logFileForFile, false);
+					LogManager.LogWithProcessLog(string.Format("Estimated compression time: {0} seconds (based on 60fps video & 360fps encode)", Math.Round(time, 2)), logFileForFile, false);
 
 
 

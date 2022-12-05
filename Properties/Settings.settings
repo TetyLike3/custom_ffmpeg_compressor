@@ -3,10 +3,10 @@
   <Profiles />
   <Settings>
     <Setting Name="sourceFolderPath" Type="System.String" Scope="Application">
-      <Value Profile="(Default)">G:\\videocustomcompressortest\\Apex_Legends_TEST</Value>
+      <Value Profile="(Default)">G:\\video stuff\\next up</Value>
     </Setting>
     <Setting Name="destinationFolderPath" Type="System.String" Scope="Application">
-      <Value Profile="(Default)">G:\\videocustomcompressortest\\Apex_Legends_OUTPUT</Value>
+      <Value Profile="(Default)">G:\\video stuff\\ready for hard dive</Value>
     </Setting>
     <Setting Name="cqp" Type="System.Int32" Scope="Application">
       <Value Profile="(Default)">24</Value>

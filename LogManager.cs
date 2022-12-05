@@ -37,6 +37,8 @@ namespace custom_ffmpeg_compressor
                 // Get the timestamp format, the log folder path and create a process log
                 globalTimestampFormat = Properties.Settings.Default.timestampFormat;
                 logFolderPath = Directory.GetCurrentDirectory() + "\\logs\\S-ID_" + _sessionid;
+                if (System.Diagnostics.Debugger.IsAttached) logFolderPath += "_DEBUG";
+                
                 if (!Directory.Exists(logFolderPath)) Directory.CreateDirectory(logFolderPath);
 
                 string processLogName = Path.GetFileNameWithoutExtension(callerModulePath) + "_MAIN_PROCESS";
