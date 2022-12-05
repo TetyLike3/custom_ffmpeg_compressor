@@ -308,10 +308,9 @@ namespace custom_ffmpeg_compressor
 			*/
 
 			process.WaitForExit();
-
-			LogManager.LogWithProcessLog("File comparison finished", logFileForFile);
-			LogManager.processLog.LogBreak();
+			
 			LogManager.LogWithProcessLog("--- PROCESS OUTPUT ---", logFileForFile);
+			LogManager.processLog.LogBreak();
 
 			exitCode = process.ExitCode;
 
