@@ -15,17 +15,29 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Configuration;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Runtime;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 using WMPLib;
 
 namespace custom_ffmpeg_compressor
 {
+	public enum ModuleStatusEnum
+	{
+		idle,
+		running,
+		paused,
+		stopped,
+		error
+	}
+	
 	internal class hevc_ffmpeg
 	{
 		static string _ver = "rev6";
@@ -35,9 +47,13 @@ namespace custom_ffmpeg_compressor
 		static string[] files = { };
 
 		static LogManager.LogFile logFileForFile;
+		static form_hevc_ffmpeg form;
 
+		static ModuleStatusEnum status = ModuleStatusEnum.idle;
 
 		static bool shouldEncode = true;
+		static bool encoding = false;
+
 
 		static void Main(string[] args)
 		{
@@ -47,7 +63,35 @@ namespace custom_ffmpeg_compressor
 			FileManager.Init();
 
 			LogManager.processLog.Log(string.Format("Preparing {0} module ({1})...", nameof(hevc_ffmpeg), _ver));
+
 			
+			// ---[FORM]--- //
+
+			LogManager.processLog.Log("Loading form...");
+			
+			form = new form_hevc_ffmpeg();
+
+			// Create a new thread to run the form
+			System.Threading.Thread formThread = new System.Threading.Thread(() => Application.Run(form));
+			formThread.Start();
+
+			LogManager.processLog.Log("Form loaded");
+
+			LogManager.ConnectForm(form);
+
+
+			// ---[STATUS LOOP]--- //
+
+			LogManager.processLog.Log("Starting status loop...");
+
+			// Create a new thread to run the status loop
+			System.Threading.Thread statusLoopThread = new System.Threading.Thread(() => statusLoop());
+			statusLoopThread.Start();
+
+			LogManager.processLog.Log("Status loop started");
+
+
+
 
 			// ---[READ SETTINGS]--- //
 			settings = RetrieveSettings();
@@ -64,6 +108,8 @@ namespace custom_ffmpeg_compressor
 			// ---[ENCODE FILES]--- //
 			foreach (string file in files)
 			{
+				while (form.shouldPause) System.Threading.Thread.Sleep(100);
+
 				if (!shouldEncode)
 				{
 					break;
@@ -140,6 +186,41 @@ namespace custom_ffmpeg_compressor
 		}
 
 
+
+
+		private static void GetState()
+		{
+			if (form.shouldPause) status = ModuleStatusEnum.paused;
+			else if (form.shouldStop) status = ModuleStatusEnum.stopped;
+			else if (encoding) status = ModuleStatusEnum.running;
+			else status = ModuleStatusEnum.idle;
+		}
+		
+		private static void statusLoop()
+		{
+		   void stopEncode()
+			{
+				shouldEncode = false;
+				Process.GetCurrentProcess().Kill();
+			}
+
+			// Connect an event to run stopEncode if the form exits
+			form.FormClosed += (s, e) => stopEncode();
+
+			ModuleStatusEnum previousStatus = ModuleStatusEnum.idle;
+			// Check the status of the form
+			while (!form.isClosed)
+			{
+				GetState();
+				if (status != previousStatus) form.UpdateModuleStatus(status);
+
+				previousStatus = status;
+				System.Threading.Thread.Sleep(100);
+			}
+
+		}
+
+
 		// [FUNCTIONS] //
 
 
@@ -175,7 +256,7 @@ namespace custom_ffmpeg_compressor
 			// Compare the lengths
 			double lenDifference = Math.Abs(originalDuration - encodedDuration);
 			LogManager.LogWithProcessLog("Length difference: " + lenDifference + " seconds", logFileForFile, false);
-			if (lenDifference != 0)
+			if (lenDifference > 1)
 			{
 				LogManager.LogWithProcessLog("Failed to complete encoding. Dropping all other files.", logFileForFile, true, LogManager.LogLevelEnum.Error);
 				shouldEncode = false;
@@ -285,6 +366,102 @@ namespace custom_ffmpeg_compressor
 			string encodedFileName = string.Format("{0}\\{1}_{2}.mp4", settings.sourceFolder, fileNameWithoutExtension, settings.suffix);
 			string processCommand = string.Format(command, fileName, encodedFileName);
 
+
+			// Create a new process
+			ProcessClass encodeProcess = new ProcessClass("Encoding Process", processCommand, settings.showProcessWindow);
+
+			// Start the process
+			encodeProcess.StartProcess();
+
+			encoding = true;
+			ModuleStatusEnum previousStatus = status;
+			
+			while (encoding)
+			{
+
+				// Wait for the process to finish
+				if (encodeProcess.process.HasExited)
+				{
+					encoding = false;
+					break;
+				}
+				else if (encodeProcess.ProcessState == ProcessStatesEnum.Stopped || status == ModuleStatusEnum.stopped)
+				{
+					encoding = false;
+					break;
+				}
+				else if (status == ModuleStatusEnum.paused && previousStatus != status)
+				{
+					//encodeProcess.PauseProcess();
+					// Send the pause key to the process
+					// [PLACEHOLDER LINE] //
+
+					break;
+				}
+				else if (status == ModuleStatusEnum.running && encodeProcess.ProcessState == ProcessStatesEnum.Paused)
+				{
+					//encodeProcess.ResumeProcess();
+					// Send the resume command to the process
+					// [PLACEHOLDER LINE] //
+
+					break;
+				}
+				previousStatus = status;
+				
+				Thread.Sleep(100);
+			}
+
+
+			/*
+			// Process thread
+			
+			Thread processThread = new Thread(() =>
+			{
+				// Create a new process
+
+				Process encodeProcess = new Process();
+				encodeProcess.StartInfo.FileName = "ffmpeg.exe";
+				encodeProcess.StartInfo.Arguments = processCommand;
+				encodeProcess.StartInfo.UseShellExecute = false;
+				encodeProcess.StartInfo.RedirectStandardOutput = true;
+				encodeProcess.StartInfo.RedirectStandardError = true;
+				encodeProcess.StartInfo.CreateNoWindow = !settings.showProcessWindow;
+
+				encoding = true;
+				// Start the process
+				LogManager.processLog.Log("Started compression of file [" + fileName + "]");
+				encodeProcess.Start();
+
+				// Log output from the process while it is running
+				while (!encodeProcess.StandardOutput.EndOfStream)
+				{
+					string line = encodeProcess.StandardOutput.ReadLine();
+					LogManager.processLog.Log(line);
+				}
+
+				// Wait for the process to finish
+				encodeProcess.WaitForExit();
+
+
+				if (encodeProcess.ExitCode != 0)
+				{
+					// Log the error
+					LogManager.processLog.Log("Error: Compression of file [" + fileName + "] failed with exit code " + encodeProcess.ExitCode);
+					LogManager.processLog.Log("Error: " + encodeProcess.StandardError.ReadToEnd());
+				}
+				else
+				{
+					// Log the success
+					LogManager.processLog.Log("Finished compression of file [" + fileName + "]");
+				}
+
+				// Close the process
+				encodeProcess.Close();
+				encoding = false;
+			});
+			*/
+
+			/*
 			Process process = new Process();
 			int exitCode = 0;
 			process.StartInfo.CreateNoWindow = !settings.showProcessWindow;
@@ -293,19 +470,24 @@ namespace custom_ffmpeg_compressor
 			process.StartInfo.FileName = "cmd.exe";
 			process.StartInfo.Arguments = "/C " + processCommand;
 
+
+			encoding = true;
 			LogManager.processLog.Log("Started compression of file [" + fileName + "]");
 			process.Start();
 
 
 			LogManager.LogWithProcessLog("--- PROCESS OUTPUT ---", logFileForFile);
 			// Log the output stream while the process is running
-			/*
 			while (!process.StandardOutput.EndOfStream)
 			{
 				string line = process.StandardOutput.ReadLine();
 				LogManager.WriteToLogs(processAndCurrentFileLogs, line, true);
 			}
-			*/
+
+
+			// Q: how would i pause this process if the user presses the pause button?
+			// A: i would have to create a new thread for the process, and then pause the thread when the user presses the pause button
+			
 
 			process.WaitForExit();
 			
@@ -316,6 +498,29 @@ namespace custom_ffmpeg_compressor
 
 			process.Close();
 			LogManager.processLog.Log(string.Format("Finished compression of file [{0}] with exit code {1}", fileName, exitCode));
+			encoding = false;
+			*/
+
+			/*
+			// Start the process thread
+			processThread.Start();
+
+			// Wait for the process to finish
+			while (encoding)
+			{
+				if (status == ModuleStatusEnum.paused)
+				{
+					processThread.Suspend();
+				}
+				else if (status == ModuleStatusEnum.running)
+				{
+					processThread.Resume();
+				}
+
+				Thread.Sleep(100);
+			}
+			*/
+
 
 			return encodedFileName;
 

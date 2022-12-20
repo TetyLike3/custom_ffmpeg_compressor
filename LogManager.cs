@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Runtime.CompilerServices;
 using System.Configuration;
+using System.Windows.Forms;
 
 namespace custom_ffmpeg_compressor
 {
@@ -23,6 +24,8 @@ namespace custom_ffmpeg_compressor
         private static bool initialised = false;
 
         private static string _sessionid = Math.Round(TimeSpan.FromTicks(DateTime.Now.Ticks).TotalSeconds).ToString();
+
+        public static form_hevc_ffmpeg form { get; private set; }
 
 
         ///<summary>
@@ -68,11 +71,19 @@ namespace custom_ffmpeg_compressor
             {
                 logFile.Log(message, timestamp, level, caller);
                 processLog.Log(message, timestamp, level, caller);
+
+                // Log to the form if it exists
+                if (LogManager.form != null)
+                {
+                    LogManager.form.Invoke(new Action(() => LogManager.form.UpdateLog(message)));
+                }
             }
         }
 
-
-
+        internal static void ConnectForm(form_hevc_ffmpeg form)
+        {
+            LogManager.form = form;
+        }
 
         internal enum LogLevelEnum
         {
@@ -119,11 +130,17 @@ namespace custom_ffmpeg_compressor
                 for (int i = 0; i < this.indent; i++) logMessage += "\t";
                 
                 // Add timestamp
-                _ = timestamp ? logMessage = DateTime.Now.ToString(this.timestampFormat) : logMessage = "";
+                _ = timestamp ? logMessage = string.Format("[{0}]", DateTime.Now.ToString(this.timestampFormat)) : logMessage = string.Empty;
+                if (logMessage == string.Empty)
+                {
+                    // Add a space for each character in timestamp to improve readability
+                    int timestampLength = DateTime.Now.ToString(this.timestampFormat).Length;
+                    for (int i = 0; i < timestampLength + 2; i++) logMessage += " ";
+                }
 
 
                 // Format message
-                logMessage = string.Format("[{0}] [{1}]  {2}: {3}", logMessage, level.ToString().ToUpper(), caller, message);
+                logMessage = string.Format("{0} [{1}]  {2}: {3}", logMessage, level.ToString().ToUpper(), caller, message);
 
                 if (this.logToConsole) Console.WriteLine(logMessage);
 

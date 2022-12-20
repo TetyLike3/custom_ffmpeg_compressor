@@ -25,7 +25,7 @@ namespace custom_ffmpeg_compressor.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("G:\\\\video stuff\\\\next up")]
+        [global::System.Configuration.DefaultSettingValueAttribute("G:\\\\video stuff\\\\NVIDIA Captures\\\\Apex Legends")]
         public string sourceFolderPath {
             get {
                 return ((string)(this["sourceFolderPath"]));
@@ -34,7 +34,7 @@ namespace custom_ffmpeg_compressor.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("G:\\\\video stuff\\\\ready for hard dive")]
+        [global::System.Configuration.DefaultSettingValueAttribute("G:\\\\video stuff\\\\ready for hard dive\\\\Captures\\\\Apex Legends")]
         public string destinationFolderPath {
             get {
                 return ((string)(this["destinationFolderPath"]));
